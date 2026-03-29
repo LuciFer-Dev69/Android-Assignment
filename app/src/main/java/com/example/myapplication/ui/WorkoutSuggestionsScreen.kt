@@ -1,64 +1,111 @@
 package com.example.myapplication.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.TipsAndUpdates
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.myapplication.data.RetrofitInstance
-import com.example.myapplication.data.WorkoutSuggestion
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.request.ImageRequest
+import com.example.myapplication.R
+import com.example.myapplication.data.ExerciseDbModel
+
+// Curated list of high-quality Unsplash IDs for gym/fitness
+private val GYM_IMAGE_IDS = listOf(
+    "1534438327276-14e5300c3a48", "1583454110551-21f2fa20019a", "1540497077202-7c8a3999166f",
+    "1571019614242-c5c5dee9f50b", "1517836357463-d25dfeac3438", "1594882645126-14020914d58d",
+    "1534258936925-a5d1b1df3961", "1550345332-09e3ac987658", "1526506118085-60ce8714f875",
+    "1599058917232-d750089b6e7c", "1574673402454-043593922c1d", "1605296867304-46d5465a13f1",
+    "1517130038641-a774d04afb3c", "1571902943202-507ec2618e8f", "1591115765373-590d7f124671",
+    "1597452485669-2c7bb5fef90d", "1434608519344-49d77a699e1d", "1534438202075-427f3c674291"
+)
+
+@Composable
+fun ExerciseImage(exercise: ExerciseDbModel, isDetail: Boolean = false) {
+    val size = if (isDetail) 800 else 300
+    val unsplashUrl = remember(exercise.id) {
+        val index = Math.abs(exercise.id.hashCode()) % GYM_IMAGE_IDS.size
+        "https://images.unsplash.com/photo-${GYM_IMAGE_IDS[index]}?q=80&w=$size&auto=format&fit=crop"
+    }
+
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(exercise.gifUrl.ifBlank { unsplashUrl })
+            .crossfade(true)
+            .build(),
+        contentDescription = null,
+        modifier = if (isDetail) {
+            Modifier.fillMaxWidth().height(300.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
+        } else {
+            Modifier.size(100.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+        },
+        contentScale = ContentScale.Crop,
+    ) {
+        val state = painter.state
+        if (state is AsyncImagePainter.State.Error) {
+            AsyncImage(
+                model = unsplashUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            SubcomposeAsyncImageContent()
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutSuggestionsScreen(onBack: () -> Unit) {
-    var suggestions by remember { mutableStateOf<List<WorkoutSuggestion>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+fun WorkoutSuggestionsScreen(
+    viewModel: WorkoutViewModel,
+    onBack: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
     
-    // State for the detail view
-    var selectedExercise by remember { mutableStateOf<WorkoutSuggestion?>(null) }
+    var selectedExercise by remember { mutableStateOf<ExerciseDbModel?>(null) }
+    var showTipDialog by remember { mutableStateOf(false) }
+    var currentTip by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        try {
-            val response = RetrofitInstance.api.getWorkouts()
-            // Less strict filter to ensure we show content. 
-            // We handle missing images with a professional placeholder.
-            val filtered = response.results.filter { 
-                it.name.isNotBlank() && it.name != "Untitled Exercise" 
-            }
-            
-            if (filtered.isEmpty()) {
-                // If everything was filtered, let's at least show what we have
-                suggestions = response.results.take(20)
-            } else {
-                suggestions = filtered
-            }
-            isLoading = false
-        } catch (e: Exception) {
-            errorMessage = "Failed to load suggestions: ${e.message}"
-            isLoading = false
-        }
-    }
+    val tips = listOf(
+        "Drink at least 500ml of water 30 minutes before your workout.",
+        "Include protein in your post-workout meal to help muscle recovery.",
+        "Don't skip the warm-up; it prepares your heart and muscles for action.",
+        "Consistency is key. Even a 15-minute workout is better than none.",
+        "Focus on your form rather than the weight to avoid injuries.",
+        "Get 7-9 hours of sleep; muscles grow while you rest, not at the gym."
+    )
 
     if (selectedExercise != null) {
-        ExerciseDetailScreen(
-            suggestion = selectedExercise!!,
+        ExerciseDbDetailScreen(
+            exercise = selectedExercise!!,
             onBack = { selectedExercise = null }
         )
     } else {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Workout Ideas", fontWeight = FontWeight.Bold) },
+                    title = { Text("Visual Workout Guide", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -67,140 +114,140 @@ fun WorkoutSuggestionsScreen(onBack: () -> Unit) {
                 )
             }
         ) { padding ->
-            when {
-                isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
-                errorMessage != null -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
-                            Text(errorMessage!!, color = MaterialTheme.colorScheme.error, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = { 
-                                isLoading = true
-                                errorMessage = null
-                            }) {
-                                Text("Retry")
-                            }
+            Column(modifier = Modifier.padding(padding)) {
+                // Get Daily Tip Section
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Coach's Tip", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("Tap for expert advice", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                        }
+                        Button(
+                            onClick = {
+                                currentTip = tips.random()
+                                showTipDialog = true
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.TipsAndUpdates, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Get Tip")
                         }
                     }
                 }
-                suggestions.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                        Text("No workouts found. Try again later.")
+
+                when (val state = uiState) {
+                    is WorkoutUiState.Loading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
                     }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(suggestions) { suggestion ->
-                            WorkoutSuggestionItem(
-                                suggestion = suggestion,
-                                onDetailsClick = { selectedExercise = suggestion }
-                            )
+                    is WorkoutUiState.Error -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(state.message, color = MaterialTheme.colorScheme.error)
+                                Button(onClick = { viewModel.loadWorkouts() }) { Text("Retry") }
+                            }
+                        }
+                    }
+                    is WorkoutUiState.Empty -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No exercises found.", color = MaterialTheme.colorScheme.onBackground)
+                        }
+                    }
+                    is WorkoutUiState.Success -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(state.suggestions) { suggestion ->
+                                ExerciseItem(suggestion) { selectedExercise = suggestion }
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+    if (showTipDialog) {
+        AlertDialog(
+            onDismissRequest = { showTipDialog = false },
+            title = { Text("Fitness Tip") },
+            text = { Text(currentTip) },
+            confirmButton = {
+                TextButton(onClick = { showTipDialog = false }) { Text("OK") }
+            }
+        )
+    }
 }
 
 @Composable
-fun WorkoutSuggestionItem(
-    suggestion: WorkoutSuggestion,
-    onDetailsClick: () -> Unit
-) {
+fun ExerciseItem(exercise: ExerciseDbModel, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RoundedCornerShape(20.dp),
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            ) {
-                if (suggestion.imageUrl != null) {
-                    AsyncImage(
-                        model = suggestion.imageUrl,
-                        contentDescription = suggestion.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // Professional Placeholder
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.FitnessCenter,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "No Preview Available",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            ExerciseImage(exercise = exercise)
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(exercise.name.uppercase(), fontWeight = FontWeight.Black, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                Text(exercise.bodyPart.replaceFirstChar { it.uppercase() }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                Text("Target: ${exercise.target}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExerciseDbDetailScreen(exercise: ExerciseDbModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Exercise Details") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
                 }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            ExerciseImage(exercise = exercise, isDetail = true)
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(exercise.name.uppercase(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
+            
+            Row(modifier = Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SuggestionChip(onClick = {}, label = { Text(exercise.bodyPart) })
+                SuggestionChip(onClick = {}, label = { Text(exercise.equipment) })
+                SuggestionChip(onClick = {}, label = { Text(exercise.target) })
+            }
+
+            Text("Instructions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(12.dp))
+            exercise.instructions.forEachIndexed { index, step ->
+                Text("${index + 1}. $step", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.onSurface)
             }
             
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = if (suggestion.name == "Untitled Exercise") "Daily Workout" else suggestion.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                val cleanDescription = suggestion.description.replace(Regex("<[^>]*>"), "")
-                Text(
-                    text = if (cleanDescription.isBlank()) "Targeting: ${suggestion.muscleGroup}" else cleanDescription,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Text(
-                            text = "${suggestion.caloriesBurned} kcal",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    AssistChip(
-                        onClick = onDetailsClick,
-                        label = { Text("Exercise Details") }
-                    )
-                }
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(onClick = onBack, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) {
+                Text("Back to Exercises")
             }
         }
     }

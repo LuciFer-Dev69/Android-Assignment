@@ -10,9 +10,11 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -20,6 +22,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.data.ActivityEntity
 import com.example.myapplication.data.AppDatabase
+import com.example.myapplication.data.UserPreferencesRepository
+import com.example.myapplication.ui.theme.PinkPrimary
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,6 +32,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddActivityScreen(
+    repository: UserPreferencesRepository,
     activityId: Int? = null,
     onBack: () -> Unit
 ) {
@@ -36,12 +42,31 @@ fun AddActivityScreen(
 
     var name by remember { mutableStateOf("") }
     var steps by remember { mutableStateOf("") }
-    var workoutType by remember { mutableStateOf("") }
+    var targetSteps by remember { mutableStateOf("") }
+    var workoutType by remember { mutableStateOf("Walking") }
     var calories by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
+    var isTask by remember { mutableStateOf(false) }
+    var existingUserId by remember { mutableIntStateOf(0) }
 
     val datePickerState = rememberDatePickerState()
     var showDatePicker by remember { mutableStateOf(false) }
+
+    // Logic for Automatic Calorie Calculation
+    LaunchedEffect(steps, workoutType) {
+        val s = steps.toIntOrNull() ?: 0
+        if (s > 0) {
+            val multiplier = when (workoutType) {
+                "Walking" -> 0.04
+                "Running" -> 0.06
+                "Cycling" -> 0.05
+                "Gym" -> 0.05
+                "Yoga" -> 0.03
+                else -> 0.04
+            }
+            calories = (s * multiplier).toInt().toString()
+        }
+    }
 
     LaunchedEffect(activityId) {
         if (activityId != null) {
@@ -49,9 +74,12 @@ fun AddActivityScreen(
             if (activity != null) {
                 name = activity.name
                 steps = activity.steps.toString()
+                targetSteps = if (activity.targetSteps > 0) activity.targetSteps.toString() else ""
+                isTask = activity.targetSteps > 0
                 workoutType = activity.workoutType
                 calories = activity.calories.toString()
                 date = activity.date
+                existingUserId = activity.userId
             }
         }
     }
@@ -152,6 +180,20 @@ fun AddActivityScreen(
                 }
             }
 
+            // --- Task Toggle ---
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Flag, contentDescription = null, tint = PinkPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Set as Goal/Task", fontWeight = FontWeight.Bold)
+                }
+                Switch(checked = isTask, onCheckedChange = { isTask = it }, colors = SwitchDefaults.colors(checkedThumbColor = PinkPrimary))
+            }
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = steps,
@@ -163,15 +205,29 @@ fun AddActivityScreen(
                     shape = MaterialTheme.shapes.large
                 )
 
-                OutlinedTextField(
-                    value = calories,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) calories = it },
-                    label = { Text("Calories") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    leadingIcon = { Icon(Icons.Default.Whatshot, contentDescription = null) },
-                    shape = MaterialTheme.shapes.large
-                )
+                if (isTask) {
+                    OutlinedTextField(
+                        value = targetSteps,
+                        onValueChange = { if (it.all { char -> char.isDigit() }) targetSteps = it },
+                        label = { Text("Target") },
+                        placeholder = { Text("Goal") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
+                        shape = MaterialTheme.shapes.large
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = calories,
+                        onValueChange = { if (it.all { char -> char.isDigit() }) calories = it },
+                        label = { Text("Calories") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        leadingIcon = { Icon(Icons.Default.Whatshot, contentDescription = null) },
+                        shape = MaterialTheme.shapes.large,
+                        supportingText = { Text("Auto-calculated from steps") }
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -193,13 +249,24 @@ fun AddActivityScreen(
             Button(
                 onClick = {
                     scope.launch {
+                        val userId = if (activityId == null) {
+                            repository.userId.firstOrNull() ?: 0
+                        } else {
+                            existingUserId
+                        }
+                        
+                        val s = steps.toIntOrNull() ?: 0
+                        val ts = if (isTask) targetSteps.toIntOrNull() ?: 0 else 0
                         val activity = ActivityEntity(
                             id = activityId ?: 0,
+                            userId = userId,
                             name = name,
-                            steps = steps.toIntOrNull() ?: 0,
+                            steps = s,
+                            targetSteps = ts,
                             workoutType = workoutType,
                             calories = calories.toIntOrNull() ?: 0,
-                            date = date
+                            date = date,
+                            isCompleted = isTask && ts > 0 && s >= ts
                         )
                         if (activityId == null) {
                             db.activityDao().insertActivity(activity)
@@ -211,7 +278,8 @@ fun AddActivityScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = name.isNotBlank() && workoutType.isNotBlank(),
-                shape = MaterialTheme.shapes.large
+                shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.buttonColors(containerColor = PinkPrimary)
             ) {
                 Text(
                     if (activityId == null) "Log Activity" else "Update Activity",

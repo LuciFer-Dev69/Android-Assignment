@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class WaterLogEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
+    val userId: Int, // Associated with UserEntity.id
     val amountMl: Int,
     val date: String // yyyy-MM-dd
 )

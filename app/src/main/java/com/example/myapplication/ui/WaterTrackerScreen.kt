@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,13 +21,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.data.WaterLogEntity
-import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WaterTrackerScreen(
     currentWaterMl: Int,
     goalMl: Int = 2500,
+    waterLogs: List<WaterLogEntity> = emptyList(),
     onAddWater: (Int) -> Unit,
     onBack: () -> Unit
 ) {
@@ -122,6 +125,66 @@ fun WaterTrackerScreen(
                 ) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("🎉 Goal Reached! You are perfectly hydrated.", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // --- 1 Week Tracker (Sunday - Saturday) ---
+            WeeklyWaterTracker(waterLogs, goalMl)
+        }
+    }
+}
+
+@Composable
+fun WeeklyWaterTracker(waterLogs: List<WaterLogEntity>, goalMl: Int) {
+    val weekDays = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    
+    // Calculate start of current week (Sunday)
+    val calendar = Calendar.getInstance()
+    calendar.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+    
+    val weekData = remember(waterLogs) {
+        weekDays.mapIndexed { index, day ->
+            val cal = calendar.clone() as Calendar
+            cal.add(Calendar.DAY_OF_YEAR, index)
+            val dateStr = dateFormat.format(cal.time)
+            val amount = waterLogs.filter { it.date == dateStr }.sumOf { it.amountMl }
+            day to amount
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "Weekly Progress",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2196F3)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                weekData.forEach { (day, amount) ->
+                    val barHeight = if (goalMl > 0) (amount.toFloat() / goalMl).coerceIn(0.1f, 1f) * 100 else 10f
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .width(12.dp)
+                                .height(barHeight.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (amount >= goalMl) Color(0xFF4CAF50) else Color(0xFF2196F3).copy(alpha = 0.6f))
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = day, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

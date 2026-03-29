@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -18,11 +19,15 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = TertiaryDark,
     background = BackgroundDark,
     surface = SurfaceDark,
-    onPrimary = BackgroundDark,
-    onSecondary = BackgroundDark,
-    onTertiary = Color.White,
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
     onBackground = Color.White,
-    onSurface = Color.White
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF2C2C2C),
+    onSurfaceVariant = Color(0xFFBDBDBD),
+    secondaryContainer = Color(0xFF333333),
+    onSecondaryContainer = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -34,14 +39,25 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = Color(0xFF0F172A),
-    onSurface = Color(0xFF0F172A)
+    onBackground = Color(0xFF2D0D14),
+    onSurface = Color(0xFF2D0D14),
+    surfaceVariant = Color(0xFFF0F0F0),
+    onSurfaceVariant = Color(0xFF49454F),
+    secondaryContainer = Color(0xFFE8DEF8),
+    onSecondaryContainer = Color(0xFF1D192B)
+)
+
+val PinkGradient = Brush.verticalGradient(
+    colors = listOf(PinkBackgroundStart, PinkBackgroundEnd)
+)
+
+val DarkPinkGradient = Brush.verticalGradient(
+    colors = listOf(BackgroundDark, Color(0xFF121212)) // Pure Dark Gradient
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color disabled to prioritize our custom Oceanic Deep branding
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

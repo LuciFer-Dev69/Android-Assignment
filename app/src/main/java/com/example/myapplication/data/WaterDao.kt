@@ -15,4 +15,7 @@ interface WaterDao {
 
     @Query("SELECT * FROM water_logs WHERE date = :date ORDER BY id DESC")
     fun getTodayLogs(date: String): Flow<List<WaterLogEntity>>
+
+    @Query("SELECT * FROM water_logs ORDER BY date DESC")
+    fun getAllWaterLogs(): Flow<List<WaterLogEntity>>
 }

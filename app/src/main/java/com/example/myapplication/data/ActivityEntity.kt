@@ -7,9 +7,12 @@ import androidx.room.PrimaryKey
 data class ActivityEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
+    val userId: Int, // Associated with UserEntity.id
     val name: String,
     val steps: Int,
+    val targetSteps: Int = 0,
     val workoutType: String,
     val calories: Int,
-    val date: String
+    val date: String,
+    val isCompleted: Boolean = false
 )

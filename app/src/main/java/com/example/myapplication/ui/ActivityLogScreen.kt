@@ -1,9 +1,13 @@
 package com.example.myapplication.ui
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -12,29 +16,34 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.data.ActivityEntity
-import com.example.myapplication.data.AppDatabase
+import com.example.myapplication.data.ActivityRepository
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun ActivityLogScreen(
+    repository: ActivityRepository,
     onBack: () -> Unit,
     onActivityClick: (Int) -> Unit,
     onEditActivity: (Int) -> Unit
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val db = remember { AppDatabase.getDatabase(context) }
-    val activities by db.activityDao().getAllActivities().collectAsState(initial = emptyList())
+    val activities by repository.getAllActivities().collectAsState(initial = emptyList())
+
+    val activityContext = LocalActivity.current
+    val windowSizeClass = activityContext?.let { calculateWindowSizeClass(it) }
+    val isTablet = windowSizeClass?.widthSizeClass != WindowWidthSizeClass.Compact
 
     Scaffold(
         topBar = {
@@ -54,25 +63,51 @@ fun ActivityLogScreen(
         if (activities.isEmpty()) {
             EmptyState(modifier = Modifier.padding(padding))
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .background(MaterialTheme.colorScheme.surface),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(activities) { activity ->
-                    ActivityLogItem(
-                        activity = activity,
-                        onClick = { onActivityClick(activity.id) },
-                        onEdit = { onEditActivity(activity.id) },
-                        onDelete = {
-                            scope.launch {
-                                db.activityDao().deleteActivity(activity)
+            if (isTablet) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(activities) { activity ->
+                        ActivityLogItem(
+                            activity = activity,
+                            onClick = { onActivityClick(activity.id) },
+                            onEdit = { onEditActivity(activity.id) },
+                            onDelete = {
+                                scope.launch {
+                                    repository.deleteActivity(activity)
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(activities) { activity ->
+                        ActivityLogItem(
+                            activity = activity,
+                            onClick = { onActivityClick(activity.id) },
+                            onEdit = { onEditActivity(activity.id) },
+                            onDelete = {
+                                scope.launch {
+                                    repository.deleteActivity(activity)
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }

@@ -62,7 +62,7 @@ fun ExerciseDetailScreen(
 
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = suggestion.name,
+                    text = suggestion.displayName,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
@@ -104,7 +104,7 @@ fun ExerciseDetailScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                val cleanDescription = suggestion.description.replace(Regex("<[^>]*>"), "")
+                val cleanDescription = suggestion.description?.replace(Regex("<[^>]*>"), "") ?: ""
                 Text(
                     text = if (cleanDescription.isBlank()) "No specific instructions available for this exercise, but ensure you maintain proper form and breathe consistently." else cleanDescription,
                     style = MaterialTheme.typography.bodyLarge,
